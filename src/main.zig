@@ -16,7 +16,6 @@ const Asteroid = struct {
     seed: u64,
 
     fn draw(self: @This()) !void {
-        // сохранять в астероиде его точки, убрать всё остальное
         var points = try std.BoundedArray(rl.Vector2, 16).init(0);
         var prng = std.rand.DefaultPrng.init(self.seed);
         const rand = prng.random();
@@ -140,7 +139,7 @@ pub fn main() anyerror!void {
     const SHIP_SPEED = 20;
 
     // Main game loop
-    while (!rl.windowShouldClose()) { // Detect window close button or ESC key
+    while (!rl.windowShouldClose()) {
         // Update
         state.dt = rl.getFrameTime();
 
