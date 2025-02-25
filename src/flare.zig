@@ -14,11 +14,8 @@ const Particle = struct {
 
 pub const Flare = struct {
     particles: std.ArrayList(Particle),
-    arena: std.heap.ArenaAllocator,
 
-    pub fn init(particles_count: usize) !Flare {
-        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        const allocator = arena.allocator();
+    pub fn init(allocator: std.mem.Allocator, particles_count: usize) !Flare {
         var particles = std.ArrayList(Particle).init(allocator);
 
         const rand = prng.random();
@@ -35,17 +32,15 @@ pub const Flare = struct {
 
         return Flare{
             .particles = particles,
-            .arena = arena,
         };
     }
 
-    pub fn deinit(self: Flare) void {
-        // self.particles.deinit();
-        self.arena.deinit();
+    pub fn deinit(self: *Flare) void {
+        self.particles.deinit();
     }
 
     pub fn update(
-        self: Flare,
+        self: *Flare,
         dt: f32,
         ship_pos: rl.Vector2,
         ship_angle: f32,
@@ -63,7 +58,7 @@ pub const Flare = struct {
     }
 
     fn reset_dead_particle(
-        _: Flare,
+        _: *Flare,
         particle: *Particle,
         dt: f32,
         ship_pos: rl.Vector2,
@@ -86,7 +81,7 @@ pub const Flare = struct {
         particle.life = rand.float(f32);
     }
 
-    pub fn draw(self: Flare) void {
+    pub fn draw(self: *Flare) void {
         for (self.particles.items) |p| {
             var color: rl.Color = undefined;
 

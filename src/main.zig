@@ -4,9 +4,9 @@ const rlm = rl.math;
 const drawLines = @import("drawing.zig").drawLines;
 const Flare = @import("flare.zig").Flare;
 const Ship = @import("ship.zig").Ship;
+const constants = @import("constants.zig");
 
-const SCREEN_WIDTH = 800 * 2;
-const SCREEN_HEIGHT = 600 * 2;
+var prng = std.rand.DefaultPrng.init(0);
 
 const Asteroid = struct {
     pos: rl.Vector2,
@@ -14,11 +14,10 @@ const Asteroid = struct {
     vel: rl.Vector2 = rl.Vector2.init(0, 0),
     radius: f32,
     seed: u64,
+    points: std.BoundedArray(rl.Vector2, 16),
 
-    fn draw(self: @This()) !void {
-        // сохранять в астероиде его точки, убрать всё остальное
+    pub fn init(radius: f32, seed: u64) !Asteroid {
         var points = try std.BoundedArray(rl.Vector2, 16).init(0);
-        var prng = std.rand.DefaultPrng.init(self.seed);
         const rand = prng.random();
 
         const n: u32 = rand.intRangeAtMost(u32, 8, 12);
@@ -27,19 +26,37 @@ const Asteroid = struct {
         for (0..n) |i| {
             const jitter = rand.float(f32);
             const angle = @as(f32, @floatFromInt(i)) * step_radians + (jitter * std.math.tau * 0.1);
-            var radius: f32 = 1.0;
+            var rad: f32 = 1.0;
             if (jitter < 0.2) {
-                radius -= 0.3;
+                rad -= 0.3;
             }
             try points.append(
                 rlm.vector2Scale(
                     rl.Vector2.init(std.math.cos(angle), std.math.sin(angle)),
-                    radius,
+                    rad,
                 ),
             );
         }
+        const pos = rl.Vector2.init(
+            rand.float(f32) * constants.SCREEN_WIDTH - constants.SCREEN_WIDTH / 2,
+            rand.float(f32) * constants.SCREEN_HEIGHT - constants.SCREEN_HEIGHT / 2,
+        );
+        const vel = rl.Vector2.init(
+            rand.float(f32) * 1 / radius * constants.ASTEROID_SPEED,
+            rand.float(f32) * 1 / radius * constants.ASTEROID_SPEED,
+        );
+        return Asteroid{
+            .pos = pos,
+            .rot = 0,
+            .vel = vel,
+            .radius = radius,
+            .seed = seed,
+            .points = points,
+        };
+    }
 
-        drawLines(self.pos, 0.0, self.radius, points.slice());
+    fn draw(self: Asteroid) !void {
+        drawLines(self.pos, 0.0, self.radius, self.points.slice());
     }
 };
 
@@ -51,84 +68,70 @@ const State = struct {
     fn init(allocator: std.mem.Allocator) !State {
         const asteroids = std.ArrayList(Asteroid).init(allocator);
 
-        const ship = try Ship.init();
         return State{
-            .ship = ship,
+            .ship = try Ship.init(allocator),
             .dt = 0,
             .asteroids = asteroids,
         };
     }
 
-    fn deinit(self: State) void {
-        defer self.asteroids.deinit();
-        defer self.ship.deinit();
+    fn deinit(self: *State) void {
+        self.asteroids.deinit();
+        self.ship.deinit();
     }
 
-    fn draw(self: State) void {
+    pub fn update(self: *State, camera: rl.Camera2D) void {
+        self.ship.update(self.dt, camera);
+    }
+
+    fn draw(self: *State) !void {
         self.ship.draw();
+        try self.draw_asteroids();
+    }
+
+    fn draw_asteroids(self: *State) !void {
+        for (self.asteroids.items) |asteroid| {
+            try asteroid.draw();
+        }
     }
 };
 
-fn drawAsteroids(state: *State) !void {
-    for (state.asteroids.items) |asteroid| {
-        try asteroid.draw();
-    }
-}
-
-fn addAsteroids(state: *State) !void {
-    var seed: u64 = undefined;
-    try std.posix.getrandom(std.mem.asBytes(&seed));
-
-    var prng = std.rand.DefaultPrng.init(seed);
+fn add_asteroids(state: *State) !void {
     const rand = prng.random();
-
-    const ASTEROID_SPEED = 6000.0;
 
     for (0..10) |_| {
         const radius = (rand.float(f32) * 50.0) + 10.0;
-
-        var asteroid_seed: u64 = undefined;
-        try std.posix.getrandom(std.mem.asBytes(&asteroid_seed));
-
-        try state.asteroids.append(.{
-            .pos = rl.Vector2.init(
-                rand.float(f32) * SCREEN_WIDTH - SCREEN_WIDTH / 2,
-                rand.float(f32) * SCREEN_HEIGHT - SCREEN_HEIGHT / 2,
-            ),
-            .rot = 0,
-            .vel = rl.Vector2.init(
-                rand.float(f32) * 1 / radius * ASTEROID_SPEED,
-                rand.float(f32) * 1 / radius * ASTEROID_SPEED,
-            ),
-            .radius = radius,
-            .seed = asteroid_seed,
-        });
+        const asteroid_seed: u64 = rand.int(u64);
+        try state.asteroids.append(try Asteroid.init(radius, asteroid_seed));
     }
 }
 
 fn resetStage(state: *State) !void {
     state.ship.pos = rl.Vector2.init(0, 0);
     state.asteroids.clearRetainingCapacity();
-    try addAsteroids(state);
+    try add_asteroids(state);
 }
 
 pub fn main() anyerror!void {
     // Initialization
     //--------------------------------------------------------------------------------------
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer {
+        const deinit_status = gpa.deinit();
+        if (deinit_status == .leak) std.testing.expect(false) catch @panic("TEST FAIL");
+    }
+    const allocator = gpa.allocator();
 
     var state = try State.init(allocator);
     defer state.deinit();
-    try addAsteroids(&state);
+    try add_asteroids(&state);
 
-    rl.initWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Asteroids");
+    rl.initWindow(constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT, "Asteroids");
     defer rl.closeWindow();
 
     var camera = rl.Camera2D{
         .target = state.ship.pos,
-        .offset = rl.Vector2.init(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2),
+        .offset = rl.Vector2.init(constants.SCREEN_WIDTH / 2, constants.SCREEN_HEIGHT / 2),
         .rotation = 0,
         .zoom = 1,
     };
@@ -164,18 +167,13 @@ pub fn main() anyerror!void {
         }
 
         // update
-        state.ship.vel = rlm.vector2Scale(state.ship.vel, 0.98);
-        state.ship.pos = rlm.vector2Add(state.ship.pos, state.ship.vel);
-        state.ship.pos = rl.Vector2.init(
-            @mod(state.ship.pos.x + camera.offset.x, SCREEN_WIDTH) - camera.offset.x,
-            @mod(state.ship.pos.y + camera.offset.y, SCREEN_HEIGHT) - camera.offset.y,
-        );
+        state.update(camera);
 
         for (state.asteroids.items) |*asteroid| {
             asteroid.pos = rlm.vector2Add(asteroid.pos, rlm.vector2Scale(asteroid.vel, state.dt));
             asteroid.pos = rl.Vector2.init(
-                @mod(asteroid.pos.x + camera.offset.x, SCREEN_WIDTH) - camera.offset.x,
-                @mod(asteroid.pos.y + camera.offset.y, SCREEN_HEIGHT) - camera.offset.y,
+                @mod(asteroid.pos.x + camera.offset.x, constants.SCREEN_WIDTH) - camera.offset.x,
+                @mod(asteroid.pos.y + camera.offset.y, constants.SCREEN_HEIGHT) - camera.offset.y,
             );
         }
 
@@ -187,14 +185,7 @@ pub fn main() anyerror!void {
             }
         }
 
-        try state.ship.flare.update(
-            state.dt,
-            state.ship.pos,
-            state.ship.rot,
-        );
-
         // Draw
-        //----------------------------------------------------------------------------------
         rl.beginDrawing();
         defer rl.endDrawing();
 
@@ -208,9 +199,7 @@ pub fn main() anyerror!void {
             rl.Color.white,
         );
         camera.begin();
-        state.draw();
-        try drawAsteroids(&state);
+        try state.draw();
         camera.end();
-        //----------------------------------------------------------------------------------
     }
 }
