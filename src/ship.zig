@@ -6,6 +6,8 @@ const drawLines = @import("drawing.zig").drawLines;
 const constants = @import("constants.zig");
 
 const SCALE = 50;
+const ROT_SPEED = 2; // rotations per second
+const SHIP_SPEED = 20;
 
 pub const Ship = struct {
     pos: rl.Vector2,
@@ -24,6 +26,23 @@ pub const Ship = struct {
 
     pub fn deinit(self: *Ship) void {
         self.flare.deinit();
+    }
+
+    pub fn handle_input(self: *Ship, dt: f32) void {
+        const shipAngle = self.rot - std.math.pi * 0.5;
+        const shipDir = rl.Vector2.init(std.math.cos(shipAngle), std.math.sin(shipAngle));
+
+        if (rl.isKeyDown(.a)) {
+            self.rot -= dt * std.math.tau * ROT_SPEED;
+        } else if (rl.isKeyDown(.d)) {
+            self.rot += dt * std.math.tau * ROT_SPEED;
+        }
+        if (rl.isKeyDown(.w)) {
+            self.vel = rlm.vector2Add(
+                self.vel,
+                rlm.vector2Scale(shipDir, dt * SHIP_SPEED),
+            );
+        }
     }
 
     pub fn update(self: *Ship, dt: f32, camera: rl.Camera2D) void {
