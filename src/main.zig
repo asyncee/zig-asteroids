@@ -143,7 +143,7 @@ pub fn main() anyerror!void {
     const SHIP_SPEED = 20;
 
     // Main game loop
-    while (!rl.windowShouldClose()) { // Detect window close button or ESC key
+    while (!rl.windowShouldClose()) {
         // Update
         state.dt = rl.getFrameTime();
 
