@@ -52,12 +52,12 @@ pub const Flare = struct {
             particle.life -= dt * rand.float(f32) * 4.0;
 
             if (particle.life <= 0) {
-                self.reset_dead_particle(particle, dt, ship_pos, ship_angle);
+                self.resetDeadParticle(particle, dt, ship_pos, ship_angle);
             }
         }
     }
 
-    fn reset_dead_particle(
+    fn resetDeadParticle(
         _: *Flare,
         particle: *Particle,
         dt: f32,

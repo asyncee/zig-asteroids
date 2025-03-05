@@ -28,7 +28,7 @@ pub const Ship = struct {
         self.flare.deinit();
     }
 
-    pub fn handle_input(self: *Ship, dt: f32) void {
+    pub fn handleInput(self: *Ship, dt: f32) void {
         const shipAngle = self.rot - std.math.pi * 0.5;
         const shipDir = rl.Vector2.init(std.math.cos(shipAngle), std.math.sin(shipAngle));
 
@@ -59,6 +59,10 @@ pub const Ship = struct {
     pub fn draw(self: *Ship) void {
         self.drawShipBody();
         self.flare.draw();
+    }
+
+    pub fn resetPosition(self: *Ship) void {
+        self.pos = rl.Vector2.init(0, 0);
     }
 
     fn drawShipBody(self: *Ship) void {

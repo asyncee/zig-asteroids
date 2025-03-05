@@ -1,5 +1,4 @@
 const std = @import("std");
-const Ship = @import("ship.zig").Ship;
 const rl = @import("raylib");
 const rlm = rl.math;
 const constants = @import("constants.zig");
@@ -52,6 +51,14 @@ pub const Asteroid = struct {
             .seed = seed,
             .points = points,
         };
+    }
+
+    pub fn update(self: *Asteroid, dt: f32, camera: rl.Camera2D) void {
+        self.pos = rlm.vector2Add(self.pos, rlm.vector2Scale(self.vel, dt));
+        self.pos = rl.Vector2.init(
+            @mod(self.pos.x + camera.offset.x, constants.SCREEN_WIDTH) - camera.offset.x,
+            @mod(self.pos.y + camera.offset.y, constants.SCREEN_HEIGHT) - camera.offset.y,
+        );
     }
 
     pub fn draw(self: Asteroid) !void {

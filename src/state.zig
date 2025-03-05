@@ -1,7 +1,10 @@
 const std = @import("std");
+const rl = @import("raylib");
+const rlm = rl.math;
 const Ship = @import("ship.zig").Ship;
 const Asteroid = @import("asteroid.zig").Asteroid;
-const rl = @import("raylib");
+
+var prng = std.rand.DefaultPrng.init(0);
 
 pub const State = struct {
     ship: Ship,
@@ -9,11 +12,12 @@ pub const State = struct {
 
     pub fn init(allocator: std.mem.Allocator) !State {
         const asteroids = std.ArrayList(Asteroid).init(allocator);
-
-        return State{
+        var state = State{
             .ship = try Ship.init(allocator),
             .asteroids = asteroids,
         };
+        try state.addAsteroids();
+        return state;
     }
 
     pub fn deinit(self: *State) void {
@@ -21,22 +25,51 @@ pub const State = struct {
         self.ship.deinit();
     }
 
-    pub fn handle_input(self: *State, dt: f32) void {
-        self.ship.handle_input(dt);
+    pub fn handleInput(self: *State, dt: f32) void {
+        self.ship.handleInput(dt);
     }
 
     pub fn update(self: *State, dt: f32, camera: rl.Camera2D) void {
         self.ship.update(dt, camera);
+
+        for (self.asteroids.items) |*asteroid| {
+            asteroid.update(dt, camera);
+        }
+    }
+
+    pub fn handleCollisions(self: *State) !void {
+        for (self.asteroids.items) |*asteroid| {
+            const dist = rlm.vector2Distance(asteroid.pos, self.ship.pos);
+            if (dist < self.ship.collision_size + asteroid.radius) {
+                try self.resetStage();
+            }
+        }
     }
 
     pub fn draw(self: *State) !void {
         self.ship.draw();
-        try self.draw_asteroids();
+        try self.drawAsteroids();
     }
 
-    fn draw_asteroids(self: *State) !void {
+    fn drawAsteroids(self: *State) !void {
         for (self.asteroids.items) |asteroid| {
             try asteroid.draw();
         }
+    }
+
+    fn addAsteroids(self: *State) !void {
+        const rand = prng.random();
+
+        for (0..10) |_| {
+            const radius = (rand.float(f32) * 50.0) + 10.0;
+            const asteroid_seed: u64 = rand.int(u64);
+            try self.asteroids.append(try Asteroid.init(radius, asteroid_seed));
+        }
+    }
+
+    pub fn resetStage(self: *State) !void {
+        self.ship.resetPosition();
+        self.asteroids.clearRetainingCapacity();
+        try addAsteroids(self);
     }
 };
