@@ -2,13 +2,45 @@ name: Build
 on: [push]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
-    name: Build and Test
+    permissions:
+      contents: write
+    name: Build
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: mlugg/setup-zig@v1
         with:
           version: 0.13.0
-      - name: build
-        run: zig build
+      - name: build dependencies
+        run: sudo apt install build-essential git libasound2-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev libwayland-dev libxkbcommon-dev build-essential git
+      - name: build for linux
+        run: zig build --release=small
+      - name: create linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: asteroids
+          path: zig-out/bin/asteroids
+          if-no-files-found: error
+          overwrite: true
+      - name: build for windows
+        run: zig build --release=small -Dtarget=x86_64-windows
+      - name: create windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: asteroids.exe
+          path: zig-out/bin/asteroids.exe
+          if-no-files-found: error
+          overwrite: true
+      - name: Create Release
+        uses: ncipollo/release-action@v1.16.0
+        with:
+          allowUpdates: true
+          artifactErrorsFailBuild: true
+          makeLatest: true
+          name: "latest"
+          commit: "master"
+          tag: "release"
+          removeArtifacts: true
+          replacesArtifacts: true
+          artifacts: "zig-out/bin/asteroids,zig-out/bin/asteroids.exe"
