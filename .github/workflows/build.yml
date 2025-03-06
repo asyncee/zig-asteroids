@@ -2,7 +2,7 @@ name: Build
 on: [push]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     name: Build and Test
     steps:
@@ -12,8 +12,10 @@ jobs:
           version: 0.13.0
       - name: build dependencies
         run: sudo apt install build-essential git libasound2-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev libwayland-dev libxkbcommon-dev build-essential git
-      - name: build
-        run: zig build --release=safe
+      - name: build for linux
+        run: zig build --release=small
+      - name: build for windows
+        run: zig build --release=small -Dtarget=x86_64-windows
       - name: create artifact
         uses: actions/upload-artifact@v4
         with:
