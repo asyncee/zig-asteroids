@@ -32,10 +32,11 @@ jobs:
           overwrite: true
       - name: Create Release
         uses: ncipollo/release-action@v1.16.0
-        allowUpdated: true
-        artifactErrorsFailBuild: true
-        makeLatest: true
-        name: "latest"
-        removeArtifacts: true
-        replacesArtifacts: true
-        artifacts: "zig-out/bin/asteroids,zig-out/bin/asteroids.exe"
+        with:
+          allowUpdated: true
+          artifactErrorsFailBuild: true
+          makeLatest: true
+          name: "latest"
+          removeArtifacts: true
+          replacesArtifacts: true
+          artifacts: "zig-out/bin/asteroids,zig-out/bin/asteroids.exe"
