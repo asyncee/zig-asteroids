@@ -4,6 +4,8 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     name: Build
     steps:
       - uses: actions/checkout@v4
@@ -33,10 +35,12 @@ jobs:
       - name: Create Release
         uses: ncipollo/release-action@v1.16.0
         with:
-          allowUpdated: true
+          allowUpdates: true
           artifactErrorsFailBuild: true
           makeLatest: true
           name: "latest"
+          commit: "master"
+          tag: "release"
           removeArtifacts: true
           replacesArtifacts: true
           artifacts: "zig-out/bin/asteroids,zig-out/bin/asteroids.exe"
